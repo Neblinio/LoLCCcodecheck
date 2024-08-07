@@ -30,14 +30,16 @@ async def main_async():
         token = str(input("Input Bearer token: "))
         
     if os.path.isfile("cccodes.txt") and os.stat("cccodes.txt").st_size != 0:
+        timeout = {'message': 'Too Many Requests', 'status_code': 429}
         myfile = open("cccodes.txt",'r')
         for line in myfile:
             cc = (line.strip('\n'))
             print("Checking:",cc)
             contents = await check(token, cc)
             print(contents)
-            while contents == ("\'message\': \'Too Many Requests\', \'status_code\': 429"):
-                print("Retrying:",cc)
+            while contents == timeout:
+                print("Waiting and retrying:",cc)
+                await asyncio.sleep(7)
                 contents = await check(token, cc)
                 print(contents)
             await asyncio.sleep(7)    
