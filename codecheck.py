@@ -1,6 +1,5 @@
 import asyncio
-import requests
-import json
+import httpx
 import os
 
 async def check(bearer_token, code):
@@ -14,42 +13,36 @@ async def check(bearer_token, code):
         "code": code,
         "locale": "en_US"
     }
-    response = requests.post(url, headers=headers, json=body)
-    response_data = json.loads(response.content.decode('utf-8'))
-    if response_data.get("status") == "CLAIMABLE":
-        return response_data
-    else:
-        return(response_data["status"])
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, json=body)
+        return response
     
 async def main_async():
     if os.path.isfile("bearertoken.txt") and os.stat("bearertoken.txt").st_size != 0:
-        myfile = open("bearertoken.txt",'r')
-        token = (myfile.read())
-        myfile.close()
+        with open("bearertoken.txt", 'r') as myfile:
+            token = myfile.read().strip()
     else:
         token = str(input("Input Bearer token: "))
         
     if os.path.isfile("cccodes.txt") and os.stat("cccodes.txt").st_size != 0:
-        timeout = {'message': 'Too Many Requests', 'status_code': 429}
-        myfile = open("cccodes.txt",'r')
-        for line in myfile:
-            cc = (line.strip('\n'))
-            print("Checking:",cc)
-            contents = await check(token, cc)
-            print(contents)
-            while contents == timeout:
-                print("Waiting and retrying:",cc)
-                await asyncio.sleep(7)
+        with open("cccodes.txt", 'r') as myfile:
+            for line in myfile:
+                cc = line.strip()
+                print("Checking:",cc)
                 contents = await check(token, cc)
-                print(contents)
-            await asyncio.sleep(7)    
-        myfile.close()
+                print(contents.json())
+                while contents.status_code == 429:
+                    print("Waiting and retrying:",cc)
+                    await asyncio.sleep(7)
+                    contents = await check(token, cc)
+                    print(contents.json())
+                await asyncio.sleep(7)
     else:
         num_times = int(input("How many codes do you want to check? "))
         for _ in range(num_times):
             cc = str(input("Input CC code: "))
             contents = await check(token, cc)
-            print(contents)
+            print(contents.json())
     
 if __name__ == "__main__":
     asyncio.run(main_async())
